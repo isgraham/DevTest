@@ -3,6 +3,7 @@ using DeveloperTest.Business.Interfaces;
 using DeveloperTest.Database;
 using DeveloperTest.Database.Models;
 using DeveloperTest.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace DeveloperTest.Business
 {
@@ -17,22 +18,45 @@ namespace DeveloperTest.Business
 
         public JobModel[] GetJobs()
         {
-            return context.Jobs.Select(x => new JobModel
-            {
-                JobId = x.JobId,
-                Engineer = x.Engineer,
-                When = x.When
-            }).ToArray();
+            return
+                (from job in context.Jobs
+                 join customer in context.Customers on job.CustomerId equals customer.CustomerId into customers
+                 from nullCustomer in customers.DefaultIfEmpty()
+                 select new JobModel
+                 {
+                     JobId = job.JobId,
+                     Engineer = job.Engineer,
+                     When = job.When,
+                     Customer = nullCustomer != null ?
+                     new CustomerModel
+                     {
+                         CustomerId = nullCustomer.CustomerId,
+                         Name = nullCustomer.Name,
+                         Type = nullCustomer.Type,
+                     } : null
+                 }).ToArray();
         }
 
         public JobModel GetJob(int jobId)
         {
-            return context.Jobs.Where(x => x.JobId == jobId).Select(x => new JobModel
-            {
-                JobId = x.JobId,
-                Engineer = x.Engineer,
-                When = x.When
-            }).SingleOrDefault();
+            return
+                (from job in context.Jobs
+                 .Where(x => x.JobId == jobId)
+                 join customer in context.Customers on job.CustomerId equals customer.CustomerId into customers
+                 from nullCustomer in customers.DefaultIfEmpty()
+                 select new JobModel
+                 {
+                     JobId = job.JobId,
+                     Engineer = job.Engineer,
+                     When = job.When,
+                     Customer = nullCustomer != null ?
+                     new CustomerModel
+                     {
+                         CustomerId = nullCustomer.CustomerId,
+                         Name = nullCustomer.Name,
+                         Type = nullCustomer.Type,
+                     } : null
+                 }).SingleOrDefault();
         }
 
         public JobModel CreateJob(BaseJobModel model)
@@ -40,7 +64,8 @@ namespace DeveloperTest.Business
             var addedJob = context.Jobs.Add(new Job
             {
                 Engineer = model.Engineer,
-                When = model.When
+                When = model.When,
+                CustomerId = model.Customer.CustomerId
             });
 
             context.SaveChanges();
@@ -49,7 +74,13 @@ namespace DeveloperTest.Business
             {
                 JobId = addedJob.Entity.JobId,
                 Engineer = addedJob.Entity.Engineer,
-                When = addedJob.Entity.When
+                When = addedJob.Entity.When,
+                Customer = new CustomerModel
+                {
+                    CustomerId = model.Customer.CustomerId,
+                    Name = model.Customer.Name,
+                    Type = model.Customer.Type,
+                }
             };
         }
     }
